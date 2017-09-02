@@ -10,8 +10,8 @@ M_DIREITO = ev3.LargeMotor('outB')
 
 def acelerar(velocidade=0, tempo=0):
     if tempo == 0:
-	    M_ESQUERDO.run_forever(speed_sp=velocidade, stop_action='brake')
-	    M_DIREITO.run_forever(speed_sp=velocidade, stop_action='brake')
+        M_ESQUERDO.run_forever(speed_sp=velocidade, stop_action='brake')
+        M_DIREITO.run_forever(speed_sp=velocidade, stop_action='brake')
         M_ESQUERDO.wait_while('running')
         M_DIREITO.wait_while('running')
     else:

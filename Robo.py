@@ -19,21 +19,18 @@ class Robo:
             self.M_DIREITO.run_timed(time_sp=tempo, speed_sp=velocidade, stop_action='brake')
             self.M_ESQUERDO.wait_while('running')
             self.M_DIREITO.wait_while('running')
-
-       # m.run_to_rel_pos(position_sp=360, speed_sp=900, stop_action="hold")
        
-       def fazer_curva(self, posicao, velocidade, mtr):
-           self.M_DIREITO.run_to_rel_pos(position_sp=posicao, speed_sp=velocidade, stop_action="hold")
+    def fazer_curva(self, posicao, velocidade, mtr):
+       mtr.run_to_rel_pos(position_sp=posicao, speed_sp=velocidade, stop_action="hold")
 
 class Sensores(Robo):
 
-    @staticmethod
-    def verifica_distancia(distancia1, distancia2):#passar IR.value() dentro de um loop
+    def verifica_distancia(self, distancia1, distancia2):#passar IR.value() dentro de um loop
         if distancia1 > 4:
-            Robo.fazer_curva(90, -300, M_DIREITO)
+            Robo.fazer_curva(self, posicao=90, velocidade=-300, mtr=self.M_DIREITO)
             #verifica lado e faz ajuste no percurso
-        else if distancia2 > 4:
-            Robo.fazer_curva(90, -300, M_ESQUERDO)
+        elif distancia2 > 4:
+            Robo.fazer_curva(self, 90, -300, mtr=self.M_ESQUERDO)
         else:
-            Robo.acelerar(-400)
+            Robo.acelerar(self, velocidade=-400, tempo=0)
     #def verificar_cor():
