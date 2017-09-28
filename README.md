@@ -1,5 +1,5 @@
 # Projeto_Robotica
-Projeto de robotica
+
 Se bluetooth não tiver conectando baixa o blueman para ubuntu: https://apps.ubuntu.com/cat/applications/precise/blueman/
 Depois conecta pelo terminal:  ssh robot@ev3dev.local senha - maker
 Depois va no diretorio do seu pc e clique em conectar a servidor.
