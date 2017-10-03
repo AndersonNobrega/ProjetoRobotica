@@ -4,7 +4,7 @@ import ev3dev.ev3 as ev3
 # from ev3dev.ev3 import *
 from time import sleep
 
-M_ESQUERDO = ev3.LargeMotor('outA')
+M_ESQUERDO = ev3.LargeMotor('outB')
 M_DIREITO = ev3.LargeMotor('outC')
 CL = ev3.ColorSensor('in1')
 CL.mode = 'COL-COLOR'
@@ -12,12 +12,15 @@ PROX1 = ev3.InfraredSensor('in2')  # DIREITA
 PROX2 = ev3.InfraredSensor('in3')  # ESQUERDA
 PROX1.mode = 'IR-PROX'
 PROX2.mode = 'IR-PROX'
-VELOCIDADE_CURVA = 250
-VELOCIDADE_ATUAL = 300
+GYRO = ev3.GyroSensor('in4')
+GYRO.mode = 'TILT-ANG'
+ang_atual = 0
+VELOCIDADE_CURVA = 300
+VELOCIDADE_ATUAL = 400
 velocidade_nova_dir = 0
 velocidade_nova_esq = 0
 erro = 0
-KP = 1
+KP = 1.3
 
 def corrigir_percurso(valor_distancia1, valor_distancia2):
     #Faz correção do percurso de acordo com os valores de distancia dos sensores
@@ -70,15 +73,17 @@ def main():
     while True:
         esq, dir = corrigir_percurso(PROX1.value(), PROX2.value()) #Novos valores de velocidade
         acelerar_ajustando(dir, esq) #Vai mudando a velocidade do robo durante o percurso
-        if CL.value() == 5:  #Vermelho
-            fazer_curva_dir(VELOCIDADE_CURVA)
-            break
         if CL.value() == 3: #Verde
+            sleep(0.4)
             fazer_curva_esq(VELOCIDADE_CURVA)
+            break
+        if CL.value() == 5:  #Vermelho
+            sleep(0.4)
+            fazer_curva_dir(VELOCIDADE_CURVA)
             break
         if CL.value() == 2: #Azul
             break
-    sleep(1) #Faz curva por 1 segundo
+    sleep(1.45) #Faz curva por 1 segundo
 
 while True:
     main()
