@@ -2,8 +2,8 @@
 
 import ev3dev.ev3 as ev3
 
-M_ESQUERDO = ev3.LargeMotor('outB')
-M_DIREITO = ev3.LargeMotor('outA')
+M_ESQUERDO = ev3.LargeMotor('outD')
+M_DIREITO = ev3.LargeMotor('outC')
 CL = ev3.ColorSensor('in1')
 CL.mode = 'COL-COLOR'
 PROX1 = ev3.InfraredSensor('in3')  # DIREITA
@@ -14,7 +14,7 @@ GYRO = ev3.GyroSensor('in4')
 GYRO.mode = 'TILT-ANG'
 
 VELOCIDADE_CURVA = 300
-VELOCIDADE_ATUAL = 600
+VELOCIDADE_ATUAL = 350
 KP = 1.5
 VERDE = 3
 VERMELHO = 5
@@ -59,44 +59,30 @@ def acelerar_ajustando(velocidade_direita, velocidade_esquerda):
     M_DIREITO.run_forever(speed_sp=velocidade_direita)
 
 
-def fazer_curva_esq(velocidade):
+def fazer_curva_dir(velocidade):
     # Faz curva pra esquerda no proprio eixo do robo
     M_ESQUERDO.run_forever(speed_sp=velocidade * -1)
     M_DIREITO.run_forever(speed_sp=velocidade)
 
 
-def fazer_curva_dir(velocidade):
+def fazer_curva_esq(velocidade):
     # Faz curva pra direita no proprio eixo do robo
     M_ESQUERDO.run_forever(speed_sp=velocidade)
     M_DIREITO.run_forever(speed_sp=velocidade * -1)
 
 
-def cor_verde():
-    acelerar(VELOCIDADE_ATUAL, 300)  # Espera 0.3 segundos antes de fazer curva
-    ang_atual = GYRO.value()  # Angulo de quando o robo entrou na cor
-    if not CL.value() == VERDE:
-        return True
-    while ang_atual - 85 <= GYRO.value():
-        fazer_curva_dir(VELOCIDADE_CURVA)
-
-
-def cor_vermelho():
-    acelerar(VELOCIDADE_ATUAL, 300)  # Espera 0.3 segundos antes de fazer curva
-    ang_atual = GYRO.value()  # Angulo de quando o robo entrou na cor
-    if not CL.value() == VERMELHO:
-        return True
-    while ang_atual + 85 >= GYRO.value():
-        fazer_curva_esq(VELOCIDADE_CURVA)
-
-
 def cor_preto():
-    acelerar(VELOCIDADE_ATUAL, 300)
+    acelerar(VELOCIDADE_ATUAL, 600)
     ang_atual = GYRO.value()
-    if not CL.value() == PRETO:
-        return True
-    else:
-        while ang_atual + 355 >= GYRO.value():
-            fazer_curva_dir(VELOCIDADE_CURVA)
+    while True:
+        fazer_curva_dir(VELOCIDADE_CURVA)
+        if ang_atual - 175 >= GYRO.value():
+            break
+    while (CL.value() == PRETO):
+            # Depois de fazer a curva, enquanto estiver sobre uma cor apenas va em frente
+        velocidade_esq, velocidade_dir = corrigir_percurso(PROX1.value(),
+                                                               PROX2.value())  # Novos valores de velocidade
+        acelerar_ajustando(velocidade_dir, velocidade_esq)
 
 
 def retornar_cor(cor):
@@ -110,13 +96,6 @@ def retornar_cor(cor):
         cor_caminho[1] = cor
 
 
-def ignora_cor():
-    while (CL.value() == VERMELHO) or (CL.value() == VERDE) or (CL.value() == AZUL) or (CL.value() == PRETO):
-        # Depois de fazer a curva, enquanto estiver sobre uma cor apenas va em frente
-        velocidade_esq, velocidade_dir = corrigir_percurso(PROX1.value(), PROX2.value())  # Novos valores de velocidade
-        acelerar_ajustando(velocidade_dir, velocidade_esq)
-
-
 def define_direcao(cor):
     if cor == "VERMELHO":
         index = 0
@@ -125,12 +104,13 @@ def define_direcao(cor):
     else:
         index = 2
 
-    if lista_valores[index] == 1:
+    if lista_valores[index] == 1 and "DIREITA" not in relacao_cores.values():
         relacao_cores[cor] = "DIREITA"
-    elif lista_valores[index] == 2:
-        relacao_cores[cor] = "MEIO"
-    elif lista_valores[index] == 3:
-        relacao_cores[cor] = "ESQUERDA"
+    else:
+        if lista_valores[index] == 2 or ("ESQUERDA" in relacao_cores.values() and "DIREITA" in relacao_cores.values()):
+            relacao_cores[cor] = "MEIO"
+        elif lista_valores[index] == 3 or "ESQUERDA" not in relacao_cores.values():
+            relacao_cores[cor] = "ESQUERDA"
 
 
 def curva(sentido):
@@ -143,28 +123,32 @@ def curva(sentido):
 
 def esquerda():
     # Faz curva de 90 graus para a esquerda
-    acelerar(VELOCIDADE_ATUAL, 300)
+    acelerar(VELOCIDADE_ATUAL, 700)
     ang_atual = GYRO.value()
-    while ang_atual + 85 >= GYRO.value():
+    while True:
         fazer_curva_esq(VELOCIDADE_CURVA)
+        if ang_atual + 85 <= GYRO.value():
+            return
 
 
 def direita():
     # Faz curva de 90 graus para direita
-    acelerar(VELOCIDADE_ATUAL, 300)
+    acelerar(VELOCIDADE_ATUAL, 700)
     ang_atual = GYRO.value()
-    while ang_atual - 85 <= GYRO.value():
+    while True:
         fazer_curva_dir(VELOCIDADE_CURVA)
+        if ang_atual - 85 >= GYRO.value():
+            return
 
 
 def aprender_caminho():
-    if cor_caminho[0] != "" and cor_caminho[1] in cores:
+    if cor_caminho[0] != "" and cor_caminho[1] in cores and cor_caminho[0] != cor_caminho[1]:
         return True
+
     if "DIREITA" not in relacao_cores.values():
         direita()
     elif "ESQUERDA" not in relacao_cores.values():
         esquerda()
-    ignora_cor()
     return False
 
 
@@ -176,21 +160,23 @@ def percurso():
             retornar_cor("VERDE")
             if relacao_cores["VERDE"] == "":
                 lista_valores[1] += 1
-                if aprender_caminho():
+                condicao = aprender_caminho()
+                if condicao:
                     define_direcao(cor_caminho[0])
             else:
                 curva(relacao_cores["VERDE"])
             break
-        elif CL.value() == VERMELHO:  # Vermelho
+        if CL.value() == VERMELHO:  # Vermelho
             retornar_cor("VERMELHO")
             if relacao_cores["VERMELHO"] == "":
                 lista_valores[1] += 1
-                if aprender_caminho():
+                condicao = aprender_caminho()
+                if condicao:
                     define_direcao(cor_caminho[0])
             else:
                 curva(relacao_cores["VERMELHO"])
             break
-        elif CL.value() == AZUL:  # Azul
+        if CL.value() == AZUL:  # Azul
             retornar_cor("AZUL")
             if relacao_cores["AZUL"] == "":
                 lista_valores[2] += 1
@@ -199,11 +185,13 @@ def percurso():
             else:
                 curva(relacao_cores["AZUL"])
             break
-        elif CL.value() == PRETO:
+        if CL.value() == PRETO:
             cor_preto()
-    ignora_cor()
+    while (CL.value() == VERMELHO) or (CL.value() == VERDE) or (CL.value() == AZUL):
+        # Depois de fazer a curva, enquanto estiver sobre uma cor apenas va em frente
+        velocidade_esq, velocidade_dir = corrigir_percurso(PROX1.value(), PROX2.value())  # Novos valores de velocidade
+        acelerar_ajustando(velocidade_dir, velocidade_esq)
 
 
 while True:
-    if not percurso():  # Se for false, chegou no final
-        break
+    percurso()
