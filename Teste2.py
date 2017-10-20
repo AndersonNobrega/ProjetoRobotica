@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 
 import ev3dev.ev3 as ev3
+from time import sleep
 
-M_ESQUERDO = ev3.LargeMotor('outD')
-M_DIREITO = ev3.LargeMotor('outC')
+M_ESQUERDO = ev3.LargeMotor('outC')
+M_DIREITO = ev3.LargeMotor('outD')
 CL = ev3.ColorSensor('in1')
 CL.mode = 'COL-COLOR'
-PROX1 = ev3.InfraredSensor('in3')  # DIREITA
-PROX2 = ev3.InfraredSensor('in2')  # ESQUERDA
+PROX1 = ev3.InfraredSensor('in2')  # DIREITA
+PROX2 = ev3.InfraredSensor('in3')  # ESQUERDA
 PROX1.mode = 'IR-PROX'
 PROX2.mode = 'IR-PROX'
 GYRO = ev3.GyroSensor('in4')
 GYRO.mode = 'TILT-ANG'
 
 VELOCIDADE_CURVA = 300
-VELOCIDADE_ATUAL = 350
+VELOCIDADE_ATUAL = 400
 KP = 1.5
 VERDE = 3
 VERMELHO = 5
@@ -72,16 +73,16 @@ def fazer_curva_esq(velocidade):
 
 
 def cor_preto():
-    acelerar(VELOCIDADE_ATUAL, 600)
+    acelerar(VELOCIDADE_ATUAL, 400)
     ang_atual = GYRO.value()
     while True:
         fazer_curva_dir(VELOCIDADE_CURVA)
         if ang_atual - 175 >= GYRO.value():
             break
-    while (CL.value() == PRETO):
-            # Depois de fazer a curva, enquanto estiver sobre uma cor apenas va em frente
+    while CL.value() == PRETO:
+        # Depois de fazer a curva, enquanto estiver sobre uma cor apenas va em frente
         velocidade_esq, velocidade_dir = corrigir_percurso(PROX1.value(),
-                                                               PROX2.value())  # Novos valores de velocidade
+                                                           PROX2.value())  # Novos valores de velocidade
         acelerar_ajustando(velocidade_dir, velocidade_esq)
 
 
@@ -119,73 +120,100 @@ def curva(sentido):
         direita()
     elif sentido == "ESQUERDA":
         esquerda()
+    else:
+        return
 
 
 def esquerda():
     # Faz curva de 90 graus para a esquerda
-    acelerar(VELOCIDADE_ATUAL, 700)
+    acelerar(VELOCIDADE_ATUAL, 1900)
     ang_atual = GYRO.value()
     while True:
         fazer_curva_esq(VELOCIDADE_CURVA)
-        if ang_atual + 85 <= GYRO.value():
+        if ang_atual + 75 <= GYRO.value():
             return
 
 
 def direita():
     # Faz curva de 90 graus para direita
-    acelerar(VELOCIDADE_ATUAL, 700)
+    acelerar(VELOCIDADE_ATUAL, 1900)
     ang_atual = GYRO.value()
     while True:
         fazer_curva_dir(VELOCIDADE_CURVA)
-        if ang_atual - 85 >= GYRO.value():
+        if ang_atual - 75 >= GYRO.value():
             return
 
 
 def aprender_caminho():
-    if cor_caminho[0] != "" and cor_caminho[1] in cores and cor_caminho[0] != cor_caminho[1]:
+    if cor_caminho[0] != "" and cor_caminho[1] in cores and cor_caminho[0] != "PRETO" and relacao_cores[cor_caminho[0]] == "":
         return True
 
+
+def sem_direcao():
     if "DIREITA" not in relacao_cores.values():
         direita()
     elif "ESQUERDA" not in relacao_cores.values():
         esquerda()
-    return False
+    else:
+        return
 
 
 def percurso():
     while True:
         velocidade_esq, velocidade_dir = corrigir_percurso(PROX1.value(), PROX2.value())  # Novos valores de velocidade
         acelerar_ajustando(velocidade_dir, velocidade_esq)  # Vai mudando a velocidade do robo durante o percurso
-        if CL.value() == VERDE:  # Verde
+        if CL.value() == VERDE:
+            acelerar(VELOCIDADE_ATUAL, 300)
+            if not CL.value() == VERDE:
+                break
             retornar_cor("VERDE")
             if relacao_cores["VERDE"] == "":
                 lista_valores[1] += 1
                 condicao = aprender_caminho()
                 if condicao:
                     define_direcao(cor_caminho[0])
+                    curva(relacao_cores["VERDE"])
+                    break
+                sem_direcao()
             else:
                 curva(relacao_cores["VERDE"])
             break
-        if CL.value() == VERMELHO:  # Vermelho
+        elif CL.value() == VERMELHO:  # Vermelho
+            acelerar(VELOCIDADE_ATUAL, 300)
+            if not CL.value() == VERMELHO:
+                break
             retornar_cor("VERMELHO")
             if relacao_cores["VERMELHO"] == "":
-                lista_valores[1] += 1
+                lista_valores[0] += 1
                 condicao = aprender_caminho()
                 if condicao:
                     define_direcao(cor_caminho[0])
+                    curva(relacao_cores["VERMELHO"])
+                    break
+                sem_direcao()
             else:
                 curva(relacao_cores["VERMELHO"])
             break
-        if CL.value() == AZUL:  # Azul
+        elif CL.value() == AZUL:  # Azul
+            acelerar(VELOCIDADE_ATUAL, 300)
+            if not CL.value() == AZUL:
+                break
             retornar_cor("AZUL")
             if relacao_cores["AZUL"] == "":
                 lista_valores[2] += 1
                 if aprender_caminho():
                     define_direcao(cor_caminho[0])
+                    curva(relacao_cores["AZUL"])
+                    break
+                sem_direcao()
             else:
                 curva(relacao_cores["AZUL"])
             break
-        if CL.value() == PRETO:
+        elif CL.value() == PRETO:
+            sleep(0.2)
+            if not CL.value() == PRETO:
+                break
+            retornar_cor("PRETO")
             cor_preto()
     while (CL.value() == VERMELHO) or (CL.value() == VERDE) or (CL.value() == AZUL):
         # Depois de fazer a curva, enquanto estiver sobre uma cor apenas va em frente
