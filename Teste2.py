@@ -13,6 +13,7 @@ PROX1.mode = 'IR-PROX'
 PROX2.mode = 'IR-PROX'
 GYRO = ev3.GyroSensor('in4')
 GYRO.mode = 'TILT-ANG'
+log = open("log.txt", "w")
 
 VELOCIDADE_CURVA = 300
 VELOCIDADE_ATUAL = 400
@@ -113,6 +114,26 @@ def define_direcao(cor):
         elif lista_valores[index] == 3 or "ESQUERDA" not in relacao_cores.values():
             relacao_cores[cor] = "ESQUERDA"
 
+    ultima_direcao()
+
+
+def ultima_direcao():
+    if "DIREITA" in relacao_cores.values() and "ESQUERDA" in relacao_cores.values():
+        ultima_cor("MEIO")
+    elif "ESQUERDA" in relacao_cores.values() and "MEIO" in relacao_cores.values():
+        ultima_cor("DIREITA")
+    elif "DIREITA" in relacao_cores.values() and "MEIO" in relacao_cores.values():
+        ultima_cor("ESQUERDA")
+
+
+def ultima_cor(direcao):
+    if relacao_cores["VERMELHO"] != "" and relacao_cores["VERDE"] != "" and relacao_cores["AZUL"] == "":
+        relacao_cores["AZUL"] = direcao
+    elif relacao_cores["VERMELHO"] != "" and relacao_cores["AZUL"] != "" and relacao_cores["VERDE"] == "":
+        relacao_cores["VERDE"] = direcao
+    elif relacao_cores["VERDE"] != "" and relacao_cores["AZUL"] != "" and relacao_cores["VERMELHO"] == "":
+        relacao_cores["VERMELHO"] = direcao
+
 
 def curva(sentido):
     # Verifica o caminho que deve seguir
@@ -126,7 +147,7 @@ def curva(sentido):
 
 def esquerda():
     # Faz curva de 90 graus para a esquerda
-    acelerar(VELOCIDADE_ATUAL, 1900)
+    acelerar(VELOCIDADE_ATUAL, 500)
     ang_atual = GYRO.value()
     while True:
         fazer_curva_esq(VELOCIDADE_CURVA)
@@ -136,7 +157,7 @@ def esquerda():
 
 def direita():
     # Faz curva de 90 graus para direita
-    acelerar(VELOCIDADE_ATUAL, 1900)
+    acelerar(VELOCIDADE_ATUAL, 500)
     ang_atual = GYRO.value()
     while True:
         fazer_curva_dir(VELOCIDADE_CURVA)
@@ -160,6 +181,8 @@ def sem_direcao():
 
 def percurso():
     while True:
+        log.write("%s : %s\n%s : %s\n%s : %s\n" % ("VERMELHO", relacao_cores["VERMELHO"], "VERDE",
+                                                   relacao_cores["VERDE"], "AZUL", relacao_cores["AZUL"]))
         velocidade_esq, velocidade_dir = corrigir_percurso(PROX1.value(), PROX2.value())  # Novos valores de velocidade
         acelerar_ajustando(velocidade_dir, velocidade_esq)  # Vai mudando a velocidade do robo durante o percurso
         if CL.value() == VERDE:
@@ -170,12 +193,18 @@ def percurso():
             if relacao_cores["VERDE"] == "":
                 lista_valores[1] += 1
                 condicao = aprender_caminho()
+                log.write("linha 176\n")
                 if condicao:
+                    log.write("linha 178\n")
                     define_direcao(cor_caminho[0])
-                    curva(relacao_cores["VERDE"])
+                    if relacao_cores["VERDE"] != "":
+                        curva(relacao_cores["VERDE"])
+                    else:
+                        sem_direcao()
                     break
                 sem_direcao()
             else:
+                log.write("linha 183\n")
                 curva(relacao_cores["VERDE"])
             break
         elif CL.value() == VERMELHO:  # Vermelho
@@ -188,7 +217,10 @@ def percurso():
                 condicao = aprender_caminho()
                 if condicao:
                     define_direcao(cor_caminho[0])
-                    curva(relacao_cores["VERMELHO"])
+                    if relacao_cores["VERMELHO"] != "":
+                        curva(relacao_cores["VERMELHO"])
+                    else:
+                        sem_direcao()
                     break
                 sem_direcao()
             else:
@@ -201,9 +233,14 @@ def percurso():
             retornar_cor("AZUL")
             if relacao_cores["AZUL"] == "":
                 lista_valores[2] += 1
-                if aprender_caminho():
+                condicao = aprender_caminho()
+                if condicao:
+                    log.write("linha 211\n")
                     define_direcao(cor_caminho[0])
-                    curva(relacao_cores["AZUL"])
+                    if relacao_cores["AZUL"] != "":
+                        curva(relacao_cores["AZUL"])
+                    else:
+                        sem_direcao()
                     break
                 sem_direcao()
             else:
@@ -223,3 +260,7 @@ def percurso():
 
 while True:
     percurso()
+    log.write("%d - %d - %d\n" % (lista_valores[0], lista_valores[1], lista_valores[2]))
+    log.write("%s - %s\n" % (cor_caminho[0], cor_caminho[1]))
+    log.write("%s : %s\n%s : %s\n%s : %s\n" % ("VERMELHO", relacao_cores["VERMELHO"], "VERDE",
+                                               relacao_cores["VERDE"], "AZUL", relacao_cores["AZUL"]))
