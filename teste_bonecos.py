@@ -3,6 +3,8 @@
 import ev3dev.ev3 as ev3
 from time import sleep
 
+M_DIREITO_SENSOR = ev3.MediumMotor('outA')
+M_ESQUERDO_SENSOR = ev3.MediumMotor('outB')
 M_ESQUERDO = ev3.LargeMotor('outC')
 M_DIREITO = ev3.LargeMotor('outD')
 CL = ev3.ColorSensor('in1')
@@ -15,8 +17,8 @@ GYRO = ev3.GyroSensor('in4')
 GYRO.mode = 'TILT-ANG'
 log = open("log.txt", "w")
 
-VARIACAO_SENSOR = 10
-DISTANCIA_BONECOS = 25
+VARIACAO_SENSOR = 15
+DISTANCIA_BONECOS = 35
 VELOCIDADE_CURVA = 300
 VELOCIDADE_ATUAL = 400
 KP = 1.5
@@ -88,6 +90,49 @@ def cor_preto():
         acelerar_ajustando(velocidade_dir, velocidade_esq)
 
 
+def acelerar_sensor(velocidade, tempo=0):
+    # Se n receber tempo, roda infinitamente
+    if tempo == 0:
+        M_ESQUERDO_SENSOR.run_forever(speed_sp=velocidade, stop_action='brake')
+        M_DIREITO_SENSOR.run_forever(speed_sp=velocidade, stop_action='brake')
+        M_ESQUERDO_SENSOR.wait_while('running')
+        M_DIREITO_SENSOR.wait_while('running')
+    else:
+        M_ESQUERDO_SENSOR.run_timed(time_sp=tempo, speed_sp=velocidade, stop_action='brake')
+        M_DIREITO_SENSOR.run_timed(time_sp=tempo, speed_sp=velocidade, stop_action='brake')
+        M_ESQUERDO_SENSOR.wait_while('running')
+        M_DIREITO_SENSOR.wait_while('running')
+
+
+def sensor_regulagem():
+    erro_ant = abs(PROX1.value() - PROX2.value())
+    erro_atual = abs(PROX1.value() - PROX2.value())
+    total = abs(erro_ant - erro_atual)
+    log.write("Total = %d\n" %total)
+    if total >= VARIACAO_SENSOR:
+        log.write("Linha 114\n")
+        acelerar_sensor(300, 300)
+        pega_bonecos(PROX1.value(), PROX2.value())
+    else:
+        return
+
+
+def pega_bonecos(distancia_direita, distancia_esquerda):
+    if distancia_direita < DISTANCIA_BONECOS:
+        direita(85)
+        acelerar(VELOCIDADE_ATUAL, 400)
+        direita(175)
+        sleep(0.1)
+        direita(85)
+        acelerar_sensor(-300, 300)
+    if distancia_esquerda < DISTANCIA_BONECOS:
+        esquerda(85)
+        acelerar(VELOCIDADE_ATUAL, 500)
+        esquerda(175)
+        sleep(0.1)
+        esquerda(85)
+        acelerar_sensor(-300, 300)
+
 def retornar_cor(cor):
     # Cor anterior = indice 0
     # Cor atual = indice 1
@@ -139,30 +184,30 @@ def ultima_cor(direcao):
 def curva(sentido):
     # Verifica o caminho que deve seguir
     if sentido == "DIREITA":
-        direita()
+        direita(80)
     elif sentido == "ESQUERDA":
-        esquerda()
+        esquerda(80)
     else:
         return
 
 
-def esquerda():
+def esquerda(angulo):
     # Faz curva de 90 graus para a esquerda
     acelerar(VELOCIDADE_ATUAL, 1900)
     ang_atual = GYRO.value()
     while True:
         fazer_curva_esq(VELOCIDADE_CURVA)
-        if ang_atual + 75 <= GYRO.value():
+        if ang_atual + angulo <= GYRO.value():
             return
 
 
-def direita():
+def direita(angulo):
     # Faz curva de 90 graus para direita
     acelerar(VELOCIDADE_ATUAL, 1900)
     ang_atual = GYRO.value()
     while True:
         fazer_curva_dir(VELOCIDADE_CURVA)
-        if ang_atual - 75 >= GYRO.value():
+        if ang_atual - angulo >= GYRO.value():
             return
 
 
@@ -173,9 +218,9 @@ def aprender_caminho():
 
 def sem_direcao():
     if "DIREITA" not in relacao_cores.values():
-        direita()
+        direita(80)
     elif "ESQUERDA" not in relacao_cores.values():
-        esquerda()
+        esquerda(80)
     else:
         return
 
@@ -184,6 +229,7 @@ def percurso():
     while True:
         log.write("%s : %s\n%s : %s\n%s : %s\n" % ("VERMELHO", relacao_cores["VERMELHO"], "VERDE",
                                                    relacao_cores["VERDE"], "AZUL", relacao_cores["AZUL"]))
+        sensor_regulagem()
         velocidade_esq, velocidade_dir = corrigir_percurso(PROX1.value(), PROX2.value())  # Novos valores de velocidade
         acelerar_ajustando(velocidade_dir, velocidade_esq)  # Vai mudando a velocidade do robo durante o percurso
         if CL.value() == VERDE:
