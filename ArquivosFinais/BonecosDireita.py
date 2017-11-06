@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
 import ev3dev.ev3 as ev3
-from time import time
+from time import time, sleep
 
 # Variaveis dos sensores e motores, e os modos dos sensores
-M_PORTA = ev3.LargeMotor('outB')
-M_DIREITO = ev3.LargeMotor("outC")
-M_ESQUERDO = ev3.LargeMotor("outD")
+M_PORTA = ev3.MediumMotor('outB')
+M_DIREITO = ev3.LargeMotor("outD")
+M_ESQUERDO = ev3.LargeMotor("outC")
 CL = ev3.ColorSensor("in1")
 CL.mode = "COL-COLOR"
-PROX1 = ev3.InfraredSensor("in2")  # Direita
-PROX2 = ev3.InfraredSensor("in3")  # Esquerda
+PROX1 = ev3.InfraredSensor("in3")  # Direita
+PROX2 = ev3.InfraredSensor("in2")  # Esquerda
 PROX3 = ev3.UltrasonicSensor("in4")
 PROX1.mode = "IR-PROX"
 PROX2.mode = "IR-PROX"
@@ -185,40 +185,44 @@ def sem_direcao(cor, indice_cor):
 
 
 def pega_bonecos_dir():
-    acelerar(VELOCIDADE_ATUAL, 200)
-    fazer_curva_dir(VELOCIDADE_CURVA, 1050)
-    acelerar(VELOCIDADE_ATUAL, 1400)
-    acelerar_porta(VELOCIDADE_ATUAL, 550)
-    acelerar(-1 * VELOCIDADE_ATUAL, 1400)
-    fazer_curva_esq(VELOCIDADE_CURVA, 1050)
+    distancia = PROX3.value() / 10
+    tempo = (distancia / 16) * 1000
+    acelerar_porta(-1 * VELOCIDADE_ATUAL, 700)
+    acelerar(-1*VELOCIDADE_ATUAL, 250)
+    fazer_curva_dir(VELOCIDADE_CURVA, 900)
+    acelerar(VELOCIDADE_ATUAL, round(tempo)+400)
+    acelerar_porta(VELOCIDADE_ATUAL, 700)
+    acelerar(-1 * VELOCIDADE_ATUAL, round(tempo)+400)
+    fazer_curva_esq(VELOCIDADE_CURVA, 900)
     return
 
 
 def chegou_rampa():
     global flag_parar
 
-    acelerar(VELOCIDADE_ATUAL, 500)
+    acelerar(VELOCIDADE_ATUAL, 4000)
     valor_direita = PROX3.value() / 10
-    fazer_curva_esq(VELOCIDADE_ATUAL, 2000)
+    fazer_curva_esq(VELOCIDADE_ATUAL, 1400)
+    sleep(0.3)
     valor_esquerda = PROX3.value() / 10
     if valor_direita >= valor_esquerda:
-        fazer_curva_dir(VELOCIDADE_ATUAL, 1000)
-        # acelera ate a parede
+        fazer_curva_dir(VELOCIDADE_ATUAL, 700)
+        acelerar(VELOCIDADE_ATUAL, round((valor_esquerda / 16) * 1000))
         acelerar(-1 * VELOCIDADE_ATUAL, 300)
-        fazer_curva_dir(VELOCIDADE_ATUAL, 1500)
+        fazer_curva_dir(VELOCIDADE_ATUAL, 1100)
     else:
-        fazer_curva_esq(VELOCIDADE_ATUAL, 1000)
-        # acelera ate a parede
+        fazer_curva_esq(VELOCIDADE_ATUAL, 700)
+        acelerar(VELOCIDADE_ATUAL, round((valor_direita / 16) * 1000))
         acelerar(-1 * VELOCIDADE_ATUAL, 300)
-        fazer_curva_esq(VELOCIDADE_ATUAL, 1500)
-    acelerar_ajustando(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL)
-    if CL.value() == PRETO:
-        # soltar boneco
-        acelerar(VELOCIDADE_ATUAL, 1500)
-        # solta boneco
-        while CL.value() == PRETO:
-            acelerar_ajustando(-1 * VELOCIDADE_ATUAL, -1 * VELOCIDADE_ATUAL)
-        flag_parar = True
+        fazer_curva_esq(VELOCIDADE_ATUAL, 1100)
+    while True:
+        acelerar_ajustando(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL)
+        if CL.value() == PRETO:
+            acelerar(VELOCIDADE_ATUAL, 1500)
+            # solta boneco
+            acelerar(-1 * VELOCIDADE_ATUAL, 1900)
+            flag_parar = True
+            return
 
 
 def percurso():
@@ -227,10 +231,19 @@ def percurso():
         # Depois de fazer a curva, enquanto estiver sobre uma cor apenas va em frente
         velocidade_esq, velocidade_dir = corrigir_percurso()  # Novos valores de velocidade
         acelerar_ajustando(velocidade_dir, velocidade_esq)
-        if PROX3.value() < DISTANCIA_BONECOS:
+        if (PROX3.value() / 10) < DISTANCIA_BONECOS:
             pega_bonecos_dir()
+
         if CL.value() == VERDE:
-            achou_cor("VERDE", VERDE, 1)
+            inicio = time()
+            fim = time()
+            while CL.value() == VERDE:
+                fim = time()
+            if fim - inicio > 0.15 and fim - inicio < 1:
+                chegou_rampa()
+            else:
+                acelerar(-1 * VELOCIDADE_ATUAL, round((fim - inicio) * 1000))
+                achou_cor("VERDE", VERDE, 1)
             break
         elif CL.value() == VERMELHO:
             achou_cor("VERMELHO", VERMELHO, 0)
@@ -254,7 +267,7 @@ def percurso():
 def main():
     while True:
         percurso()
-        if flag_parar == True:
+        if flag_parar:
             parar_motor()
             break
 
