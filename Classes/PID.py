@@ -7,8 +7,8 @@ class PID:
     def controle_proporcional(sensor1, sensor2):
         # Faz correção do percurso de acordo com os valores de distancia dos sensores
         try:
-            distancia_direita = sensor1.value()
-            distancia_esquerda = sensor2.value()
+            distancia_direita = sensor1
+            distancia_esquerda = sensor2
             erro = distancia_direita - distancia_esquerda
         except ValueError:
             erro = 0
