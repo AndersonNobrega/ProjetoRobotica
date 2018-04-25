@@ -1,12 +1,12 @@
 
-from ev3dev.ev3 import MediumMotor, LargeMotor, UltrasonicSensor, ColorSensor
+from ev3dev.ev3 import *
 
 from Classes.Motores import *
 
 
 
 # Motores
-M_PORTA = MediumMotor('outB')
+M_PORTA = LargeMotor("outB")
 M_DIREITO = LargeMotor("outC")
 M_ESQUERDO = LargeMotor("outD")
 
@@ -42,11 +42,10 @@ relacao_cores = {"VERMELHO": "", "VERDE": "", "AMARELO": ""}
 flag_parar = False
 final = False
 
-funcao_motores = Motores(M_DIREITO, M_ESQUERDO, M_PORTA)
+funcao_motores = Motores(M_ESQUERDO, M_DIREITO, M_PORTA)
 
 
 def controle_proporcional(sensor1, sensor2):
-
     global velocidade_dir, velocidade_esq
     # Faz correção do percurso de acordo com os valores de distancia dos sensores
     try:
@@ -74,6 +73,8 @@ def cor_preto(tempo):
         # Depois de fazer a curva, enquanto estiver sobre uma cor apenas va em frente
         controle_proporcional(CL1.value(), CL2.value())  # Novos valores de velocidade
         funcao_motores.acelerar_ajustando(velocidade_dir, velocidade_esq)
+
+
 
 def retornar_cor(cor):
     # Cor anterior = indice 0
@@ -141,13 +142,36 @@ def sem_direcao(cor, indice_cor):
         curva(relacao_cores[cor])
 
 def verifica_cor(cor, constante_cor, indice_cor):
-    if CL1.value == constante_cor:
-        funcao_motores.acelerar_dir((-1)*VELOCIDADE_ATUAL, 500)
-    if CL1.value == constante_cor:
-        funcao_motores.acelerar_esq((-1)*VELOCIDADE_ATUAL, 500)
+
+    temp1 = CL1.value()
+    temp2 = CL2.value()
+    if temp1 != temp2:
+        funcao_motores.acelerar_dir(VELOCIDADE_ATUAL * (-1), 500)
+        funcao_motores.acelerar_esq(VELOCIDADE_ATUAL * (-1), 500)
+        controle_proporcional(CL1.value(), CL2.value())
+    if aprender_caminho():
+        define_direcao(cor_caminho[0])
+
+    sem_direcao(cor, indice_cor)
 
 
 def main():
     global velocidade_dir, velocidade_esq
 
     while True:
+        controle_proporcional(CL1.value(), CL2.value())
+        if CL1.value() == VERDE and CL2.value() == VERDE:
+            verifica_cor("VERDE", VERDE, 1)
+            break
+        elif CL1.value() == VERMELHO and CL2.value() == VERMELHO:
+            verifica_cor("VERMELHO", VERMELHO, 0)
+            break
+        elif CL1.value() == AMARELO and CL2.value() == AMARELO:
+            verifica_cor("AMARELO", AMARELO, 2)
+            break
+        elif CL1.value() == PRETO and CL2.value() == PRETO:
+            funcao_motores.acelerar(VELOCIDADE_ATUAL, 900)
+
+
+
+main()
