@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-from ev3dev.ev3 import MediumMotor, LargeMotor, ColorSensor
+from ev3dev.ev3 import MediumMotor, LargeMotor, ColorSensor, Button
 from Classes.Motores import *
 import csv
 from time import time, sleep
-import os
+from os import system, remove
+system('setfont Lat15-TerminusBold14')
 
 # Motores
 M_PORTA = MediumMotor('outC')
@@ -34,11 +35,11 @@ funcao_motores = Motores(M_ESQUERDO, M_DIREITO, M_PORTA)
 
 def salvar(arquivo, sensor):
     try:
-        os.remove(arquivo)
+        remove(arquivo)
     except OSError:
         pass
 
-    with open(arquivo, 'a+', encoding='ISO-8859-1') as valores:
+    with open(arquivo, 'a+') as valores:
         tabela = csv.writer(valores)
         tabela.writerow([sensor[0][0], sensor[0][1], sensor[0][2], sensor[0][3], sensor[0][4], sensor[0][5]])
         tabela.writerow([sensor[1][0], sensor[1][1], sensor[1][2], sensor[1][3], sensor[1][4], sensor[1][5]])
@@ -76,15 +77,45 @@ def calibrar(arquivo):
 
 
 def main():
-    calibrar("verde.csv")
-    sleep(15)
-    calibrar("vermelho.csv")
-    sleep(15)
-    calibrar("azul.csv")
-    sleep(15)
-    calibrar("preto.csv")
-    sleep(15)
-    calibrar("branco.csv")
+    botao = Button()
+
+    print("---VERDE---")
+    while True:
+        if botao.enter:
+            calibrar("verde.csv")
+            break
+    sleep(1)
+    system("clear")
+
+    print("---VERMELHO---")
+    while True:
+        if botao.enter:
+            calibrar("vermelho.csv")
+            break
+    sleep(1)
+    system("clear")
+
+    print("---AZUL---")
+    while True:
+        if botao.enter:
+            calibrar("azul.csv")
+            break
+    sleep(1)
+    system("clear")
+
+    print("---PRETO---")
+    while True:
+        if botao.enter:
+            calibrar("preto.csv")
+            break
+    sleep(1)
+    system("clear")
+
+    print("---BRANCO---")
+    while True:
+        if botao.enter:
+            calibrar("branco.csv")
+            break
 
 
 main()
