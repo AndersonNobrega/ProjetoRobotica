@@ -27,65 +27,44 @@ TEMPO_CURVA_90 = 1600
 TEMPO_CURVA_180 = 3200
 DISTANCIA_BONECOS = 14
 VELOCIDADE_CURVA = 400
-VELOCIDADE_ATUAL = velocidade_dir = velocidade_esq = 350
+VELOCIDADE_ATUAL = 350
 KP = 2
 KD = 0
 KI = 0.3
-PRETO = 1
-AZUL = 2
-VERDE = 3
-AMARELO = 4
-VERMELHO = 5
-BRANCO = 6
 R = 0
 G = 1
 B = 2
 quant_bonecos = 0
-lista_valores = [0, 0, 0]  # indice 0 - VERMELHO, indice 1 - VERDE, indice 2 - AMARELO
+lista_valores = [0, 0, 0]  # indice 0 - VERMELHO, indice 1 - VERDE, indice 2 - AZUL
 cor_caminho = ["", ""]
 cores = ["VERMELHO", "AZUL", "VERDE"]
 relacao_cores = {"VERMELHO": "", "VERDE": "", "AZUL": ""}
 flag_parar = False
 final = False
-OFFSET = 0
 CONSTANTE_DEUS = 9
 
 # Valores RGB para usar nos sensores
-VERDE_CL1_RGB_MIN = []
-VERDE_CL1_RGB_MAX = []
-VERDE_CL2_RGB_MIN = []
-VERDE_CL2_RGB_MAX = []
-VERMELHO_CL1_RGB_MIN = []
-VERMELHO_CL1_RGB_MAX = []
-VERMELHO_CL2_RGB_MIN = []
-VERMELHO_CL2_RGB_MAX = []
-AZUL_CL1_RGB_MIN = []
-AZUL_CL1_RGB_MAX = []
-AZUL_CL2_RGB_MIN = []
-AZUL_CL2_RGB_MAX = []
-PRETO_CL1_RGB_MIN = []
-PRETO_CL1_RGB_MAX = []
-PRETO_CL2_RGB_MIN = []
-PRETO_CL2_RGB_MAX = []
-BRANCO_CL1_RGB_MIN = []
-BRANCO_CL1_RGB_MAX = []
-BRANCO_CL2_RGB_MIN = []
-BRANCO_CL2_RGB_MAX = []
+VALORES_RGB = {"VERMELHO": [], "VERDE": [], "AZUL": [], "PRETO": [], "BRANCO": []}
+MIN_CL1 = 0
+MAX_CL1 = 1
+MIN_CL2 = 2
+MAX_CL2 = 3
 
 funcao_motores = Motores(M_ESQUERDO, M_DIREITO, M_PORTA)
 pid = PID(KP, KI, KD)
-pid.SetPoint = 0
-
-
-def salvar(texto):
-    with open('leitura_cl.txt', 'a+', encoding='ISO-8859-1') as arquivo:
-        for linha in texto:
-            arquivo.write(linha)
 
 
 def ler_valores_rgb(arquivo):
+    """
+    Faz a leitura do arquivo csv e retorna os valores contidos
+
+    :param arquivo: Nome do arquivo
+    :return: Valores RGB que estavam guardados no arquivo
+
+    """
+
     cont = 0
-    with open(arquivo, 'r', encoding='ISO-8859-1') as valores:
+    with open(arquivo, 'r') as valores:
         tabela = reader(valores)
         for linha in tabela:
             if cont == 0:
@@ -96,57 +75,49 @@ def ler_valores_rgb(arquivo):
                 sensor2_max = linha[3:6]
             cont += 1
 
-        return sensor1_min, sensor1_max, sensor2_min, sensor2_max
+        return [sensor1_min, sensor1_max, sensor2_min, sensor2_max]
 
 
 def guardar_valores():
-    global VERDE_CL1_RGB_MIN, VERDE_CL1_RGB_MAX, VERDE_CL2_RGB_MIN, VERDE_CL2_RGB_MAX, VERMELHO_CL1_RGB_MIN, \
-        VERMELHO_CL1_RGB_MAX, VERMELHO_CL2_RGB_MIN, VERMELHO_CL2_RGB_MAX, AZUL_CL1_RGB_MIN, AZUL_CL1_RGB_MAX, \
-        AZUL_CL2_RGB_MIN, AZUL_CL2_RGB_MAX, PRETO_CL1_RGB_MIN, PRETO_CL1_RGB_MAX, PRETO_CL2_RGB_MIN, PRETO_CL2_RGB_MAX, \
-        BRANCO_CL1_RGB_MIN, BRANCO_CL1_RGB_MAX, BRANCO_CL2_RGB_MIN, BRANCO_CL2_RGB_MAX
+    """
+    Ler os valores RGB guardados na calibragem e coloca eles em um dict
 
-    VERDE_CL1_RGB_MIN, VERDE_CL1_RGB_MAX, VERDE_CL2_RGB_MIN, VERDE_CL2_RGB_MAX = ler_valores_rgb("verde.csv")
-    VERMELHO_CL1_RGB_MIN, VERMELHO_CL1_RGB_MAX, VERMELHO_CL2_RGB_MIN, VERMELHO_CL2_RGB_MAX = ler_valores_rgb(
-        "vermelho.csv")
-    AZUL_CL1_RGB_MIN, AZUL_CL1_RGB_MAX, AZUL_CL2_RGB_MIN, AZUL_CL2_RGB_MAX = ler_valores_rgb("azul.csv")
-    PRETO_CL1_RGB_MIN, PRETO_CL1_RGB_MAX, PRETO_CL2_RGB_MIN, PRETO_CL2_RGB_MAX = ler_valores_rgb("preto.csv")
-    BRANCO_CL1_RGB_MIN, BRANCO_CL1_RGB_MAX, BRANCO_CL2_RGB_MIN, BRANCO_CL2_RGB_MAX = ler_valores_rgb("branco.csv")
+    """
+
+    VALORES_RGB["VERDE"] = ler_valores_rgb("verde.csv")
+    VALORES_RGB["VERMELHO"] = ler_valores_rgb("vermelho.csv")
+    VALORES_RGB["AZUL"] = ler_valores_rgb("azul.csv")
+    VALORES_RGB["PRETO"] = ler_valores_rgb("preto.csv")
+    VALORES_RGB["BRANCO"] = ler_valores_rgb("branco.csv")
 
 
 def eh_cor(lista_rgb_min, lista_rgb_max, sensor):
+    """
+    Verifica se o sensor esta lendo alguma cor no momento
+
+    :param lista_rgb_min: Valores minimos do RGB achados na calibragem
+    :param lista_rgb_max: Valores maximos do RGB achados na calibragem
+    :param sensor: Sensor que esta lendo (CL1 ou CL2)
+    :return: Se o valor do sensor se encontra no intervalo da cor que se procura
+
+    """
+
     return ((int(lista_rgb_min[R]) <= sensor.value(R) <= int(lista_rgb_max[R])) and
             (int(lista_rgb_min[G]) <= sensor.value(G) <= int(lista_rgb_max[G])) and
             (int(lista_rgb_min[B]) <= sensor.value(B) <= int(lista_rgb_max[B])))
 
 
-def eh_cor_atual_cl1(cor):
-    if cor == "VERDE":
-        return eh_cor(VERDE_CL1_RGB_MIN, VERDE_CL1_RGB_MAX, CL1)
-    elif cor == "VERMELHO":
-        return eh_cor(VERMELHO_CL1_RGB_MIN, VERMELHO_CL1_RGB_MAX, CL1)
-    elif cor == "AZUL":
-        return eh_cor(AZUL_CL1_RGB_MIN, AZUL_CL1_RGB_MAX, CL1)
-    elif cor == "PRETO":
-        return eh_cor(PRETO_CL1_RGB_MIN, PRETO_CL1_RGB_MAX, CL1)
-    elif cor == "BRANCO":
-        return eh_cor(BRANCO_CL1_RGB_MIN, BRANCO_CL1_RGB_MAX, CL1)
-
-
-def eh_cor_atual_cl2(cor):
-    if cor == "VERDE":
-        return eh_cor(VERDE_CL2_RGB_MIN, VERDE_CL2_RGB_MAX, CL2)
-    elif cor == "VERMELHO":
-        return eh_cor(VERMELHO_CL2_RGB_MIN, VERMELHO_CL2_RGB_MAX, CL2)
-    elif cor == "AZUL":
-        return eh_cor(AZUL_CL2_RGB_MIN, AZUL_CL2_RGB_MAX, CL2)
-    elif cor == "PRETO":
-        return eh_cor(PRETO_CL2_RGB_MIN, PRETO_CL2_RGB_MAX, CL2)
-    elif cor == "BRANCO":
-        return eh_cor(BRANCO_CL2_RGB_MIN, BRANCO_CL2_RGB_MAX, CL2)
-
-
 def controle_proporcional(valor1, valor2, offset):
-    # Faz correção do percurso de acordo com os valores de distancia dos sensores
+    """
+    Faz o calculo do PID e retorna os valores de velocidade para os motores
+
+    :param valor1: Leitura da distancia do sensor infravermelho da direita
+    :param valor2: Leitura da distancia do sensor infravermelho da esquerda
+    :param offset: Diferença entre sensor infravermelho da direita e da esquerda no inicio do codigo
+    :return: Novos valores de velocidades para o motor direito e esquerdo
+
+    """
+
     erro = (valor1 - valor2) - offset
     pid.update(erro)
     correcao = pid.output
@@ -157,25 +128,16 @@ def controle_proporcional(valor1, valor2, offset):
     return velocidade_nova_esq, velocidade_nova_dir
 
 
-def cor_preto(tempo):
-    # Curva quando tiver na cor preta
-    ajustar_na_cor("PRETO")
-    funcao_motores.acelerar(0, 600)
-    funcao_motores.acelerar(VELOCIDADE_ATUAL, 2200)
-
-    funcao_motores.fazer_curva_dir_esteira(VELOCIDADE_CURVA, tempo)
-
-    funcao_motores.acelerar(VELOCIDADE_ATUAL, 1100)
-
-    ajustar_na_cor("BRANCO")
-    funcao_motores.acelerar(0, 600)
-
-    funcao_motores.acelerar(VELOCIDADE_ATUAL, 500)
-
-
 def retornar_cor(cor):
-    # Cor anterior = indice 0
-    # Cor atual = indice 1
+    """
+    Atualiza a lista com a ultima cor que o robo encontrou e a penultima cor
+
+    Cor anterior = indice 0
+    Cor atual = indice 1
+
+    :param cor: Cor que o robo encontrou
+
+    """
 
     if cor_caminho[1] != "":
         cor_caminho[0] = cor_caminho[1]
@@ -185,12 +147,23 @@ def retornar_cor(cor):
 
 
 def parar_motor():
+    """
+    Para o motor do robo
+
+    """
+
     M_ESQUERDO.stop()
     M_DIREITO.stop()
 
 
 def define_direcao(cor):
-    # Procura achar a direcao da cor
+    """
+    Procura a cor no dict e guarda qual a direcao dela
+
+    :param cor: Cor que o robo encontrou
+
+    """
+
     if cor == "VERMELHO":
         index = 0
     elif cor == "VERDE":
@@ -207,56 +180,95 @@ def define_direcao(cor):
 
 
 def curva(sentido):
-    # Verifica o caminho que deve seguir
+    """
+    Verifica para que lado o robo deve seguir
+
+    :param sentido: O sentido que o robo deve seguir
+
+    """
+
     if sentido == "DIREITA":
         direita(TEMPO_CURVA_90)
     elif sentido == "ESQUERDA":
         esquerda(TEMPO_CURVA_90)
-    else:
-        return
 
 
 def esquerda(tempo):
-    # Faz curva de 90 graus para a esquerda
+    """
+    Faz curva para a esquerda
+
+    :param tempo: Tempo que deve levar fazendo a curva
+
+    """
+
     funcao_motores.acelerar(VELOCIDADE_ATUAL, 1200)
     funcao_motores.fazer_curva_esq_esteira(VELOCIDADE_CURVA, tempo)
 
 
 def direita(tempo):
-    # Faz curva de 90 graus para direita
+    """
+    Faz curva para a direita
+
+    :param tempo: Tempo que deve levar fazendo a curva
+
+    """
+
     funcao_motores.acelerar(VELOCIDADE_ATUAL, 1200)
     funcao_motores.fazer_curva_dir_esteira(VELOCIDADE_CURVA, tempo)
 
 
 def ajustar_na_cor(cor):
+    """
+    Ajuda o robo para ficar reto quando encontra uma cor e quando sai de uma cor
+
+    :param cor: Cor em que o robo se encontra
+
+    """
+
     while True:
-        if eh_cor_atual_cl1(cor):
+        if eh_cor(VALORES_RGB[cor][MIN_CL1], VALORES_RGB[cor][MAX_CL1], CL1):
             funcao_motores.acelerar_dir(-1 * (VELOCIDADE_ATUAL - 175))
         else:
             funcao_motores.acelerar_dir(0)
 
-        if eh_cor_atual_cl2(cor):
+        if eh_cor(VALORES_RGB[cor][MIN_CL2], VALORES_RGB[cor][MAX_CL2], CL2):
             funcao_motores.acelerar_esq(-1 * (VELOCIDADE_ATUAL - 175))
         else:
             funcao_motores.acelerar_esq(0)
 
-        if not eh_cor_atual_cl1(cor) and not eh_cor_atual_cl2(cor):
+        if not eh_cor(VALORES_RGB[cor][MIN_CL1], VALORES_RGB[cor][MAX_CL1], CL1) and \
+                not eh_cor(VALORES_RGB[cor][MIN_CL2], VALORES_RGB[cor][MAX_CL2], CL2):
             return
 
 
 def aprender_caminho():
-    # Verifica se o caminho que ele seguiu n e um dead end
+    """
+    Verifica se ele achou uma cor diferente da anterior que nao seja preto
+
+    Cor anterior = indice 0
+    Cor atual = indice 1
+
+    """
+
     if cor_caminho[0] != "" and cor_caminho[1] in cores and \
             cor_caminho[0] != "PRETO" and relacao_cores[cor_caminho[0]] == "":
         return True
 
 
-def achou_cor(cor, indice_cor):
-    # Quando achar uma cor(Azul, Vermelho ou Verde), verifique se n foi so um bug no sensor e faca uma curva
+def achou_cor(cor, indice_cor=None):
+    """
+    Quando achar uma cor, verifique se nao foi so um bug no sensor e faz a curva
+
+    :param cor: Cor em que o robo se encontra
+    :param indice_cor: Indice da cor na lista
+
+    """
+
     funcao_motores.acelerar(VELOCIDADE_ATUAL, 300)
     funcao_motores.acelerar(0, 600)
 
-    if not eh_cor_atual_cl1(cor) and not eh_cor_atual_cl2(cor):
+    if not eh_cor(VALORES_RGB[cor][MIN_CL1], VALORES_RGB[cor][MAX_CL1], CL1) and \
+            not eh_cor(VALORES_RGB[cor][MIN_CL2], VALORES_RGB[cor][MAX_CL2], CL2):
         funcao_motores.acelerar(-1 * VELOCIDADE_ATUAL, 600)
         funcao_motores.acelerar(0, 500)
         return
@@ -266,10 +278,15 @@ def achou_cor(cor, indice_cor):
     funcao_motores.acelerar(VELOCIDADE_ATUAL, 1200)
 
     retornar_cor(cor)
-    if aprender_caminho():
-        define_direcao(cor_caminho[0])
 
-    sem_direcao(cor, indice_cor)
+    if cor == "PRETO":
+        funcao_motores.acelerar(VELOCIDADE_ATUAL, 100)
+        direita(TEMPO_CURVA_180)
+    else:
+        if aprender_caminho():
+            define_direcao(cor_caminho[0])
+        else:
+            sem_direcao(cor, indice_cor)
 
     funcao_motores.acelerar(VELOCIDADE_ATUAL, 1200)
 
@@ -280,7 +297,14 @@ def achou_cor(cor, indice_cor):
 
 
 def sem_direcao(cor, indice_cor):
-    # Quando nao tem uma direcao definida ainda para a cor
+    """
+    Verifica se a cor ja tem um sentido definido ou nao, e faz a curva
+
+    :param cor: Cor em que o robo se encontra
+    :param indice_cor: Indice da cor na lista
+
+    """
+
     if relacao_cores[cor] == "":
         lista_valores[indice_cor] += 1
         direita(TEMPO_CURVA_90)
@@ -289,6 +313,11 @@ def sem_direcao(cor, indice_cor):
 
 
 def pega_bonecos_dir():
+    """
+    Funcao para pegar os bonecos na plataforma da direita
+
+    """
+
     funcao_motores.acelerar_porta(-1 * VELOCIDADE_ATUAL, 5000)
     funcao_motores.fazer_curva_dir_esteira(VELOCIDADE_CURVA, 900)
     funcao_motores.acelerar(VELOCIDADE_ATUAL, 2000)
@@ -300,6 +329,11 @@ def pega_bonecos_dir():
 
 
 def pega_bonecos_esq():
+    """
+    Funcao para pegar os bonecos na plataforma da esquerda
+
+    """
+
     funcao_motores.acelerar_porta(-1 * VELOCIDADE_ATUAL, 5000)
     funcao_motores.fazer_curva_esq_esteira(VELOCIDADE_CURVA, 900)
     funcao_motores.acelerar(VELOCIDADE_ATUAL, 2000)
@@ -311,47 +345,42 @@ def pega_bonecos_esq():
 
 
 def percurso(offset):
-    global quant_bonecos
+    """
+    Funcao principal do robo, onde ele vai se ajustando de acordo com os valores do PID e verifica se encontrou alguma
+    cor
+
+    :param offset: Diferença entre sensor infravermelho da direita e da esquerda no inicio do codigo
+
+    """
 
     while True:
-        # Depois de fazer a curva, enquanto estiver sobre uma cor apenas va em frente
-
         velocidade_esq, velocidade_dir = controle_proporcional(PROX1.value(), PROX2.value(), offset)
         funcao_motores.acelerar_ajustando(velocidade_dir, velocidade_esq)
 
-        if eh_cor(VERDE_CL1_RGB_MIN, VERDE_CL1_RGB_MAX, CL1) and eh_cor(VERDE_CL2_RGB_MIN, VERDE_CL2_RGB_MAX, CL2):
+        if eh_cor(VALORES_RGB["VERDE"][MIN_CL1], VALORES_RGB["VERDE"][MAX_CL1], CL1) and \
+                eh_cor(VALORES_RGB["VERDE"][MIN_CL2], VALORES_RGB["VERDE"][MAX_CL2], CL2):
+
             achou_cor("VERDE", 1)
-            break
+        elif eh_cor(VALORES_RGB["VERMELHO"][MIN_CL1], VALORES_RGB["VERMELHO"][MAX_CL1], CL1) and \
+                eh_cor(VALORES_RGB["VERMELHO"][MIN_CL2], VALORES_RGB["VERMELHO"][MAX_CL2], CL2):
 
-        if eh_cor(VERMELHO_CL1_RGB_MIN, VERMELHO_CL1_RGB_MAX, CL1) and eh_cor(VERMELHO_CL2_RGB_MIN,
-                                                                              VERMELHO_CL2_RGB_MAX, CL2):
             achou_cor("VERMELHO", 0)
-            break
-        elif eh_cor(AZUL_CL1_RGB_MIN, AZUL_CL1_RGB_MAX, CL1) and eh_cor(AZUL_CL2_RGB_MIN, AZUL_CL2_RGB_MAX, CL2):
-            achou_cor("AZUL", 2)
-            break
-        elif eh_cor(PRETO_CL1_RGB_MIN, PRETO_CL1_RGB_MAX, CL1) and eh_cor(PRETO_CL2_RGB_MIN, PRETO_CL2_RGB_MAX, CL2):
-            funcao_motores.acelerar(VELOCIDADE_ATUAL, 300)
-            funcao_motores.acelerar(0, 600)
+        elif eh_cor(VALORES_RGB["AZUL"][MIN_CL1], VALORES_RGB["AZUL"][MAX_CL1], CL1) and \
+                eh_cor(VALORES_RGB["AZUL"][MIN_CL2], VALORES_RGB["AZUL"][MAX_CL2], CL2):
 
-            if not eh_cor(PRETO_CL1_RGB_MIN, PRETO_CL1_RGB_MAX, CL1) and not eh_cor(PRETO_CL2_RGB_MIN,
-                                                                                    PRETO_CL2_RGB_MAX, CL2):
-                funcao_motores.acelerar(-1 * VELOCIDADE_ATUAL, 600)
-                funcao_motores.acelerar(0, 500)
-                break
-            else:
-                retornar_cor("PRETO")
-                cor_preto(TEMPO_CURVA_180)
+            achou_cor("AZUL", 2)
+        elif eh_cor(VALORES_RGB["PRETO"][MIN_CL1], VALORES_RGB["PRETO"][MAX_CL1], CL1) and \
+                eh_cor(VALORES_RGB["PRETO"][MIN_CL2], VALORES_RGB["PRETO"][MAX_CL2], CL2):
+
+            achou_cor("PRETO")
 
 
 def main():
-    global OFFSET
-
     guardar_valores()
     funcao_motores.acelerar(0, 300)
-    OFFSET = PROX1.value() - PROX2.value()
+    offset = PROX1.value() - PROX2.value()
     while True:
-        percurso(OFFSET)
+        percurso(offset)
 
 
 if __name__ == '__main__':
