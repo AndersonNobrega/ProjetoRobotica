@@ -1,26 +1,34 @@
+#!/usr/bin/env python3
 
-from ev3dev.ev3 import MediumMotor, LargeMotor, UltrasonicSensor, ColorSensor
+from ev3dev.ev3 import *
 
 from Classes.Motores import *
-
+from Classes.PID import *
 
 
 # Motores
-M_PORTA = MediumMotor('outB')
+M_PORTA = LargeMotor("outB")
 M_DIREITO = LargeMotor("outC")
 M_ESQUERDO = LargeMotor("outD")
 
 # Sensores de Cor
-CL1 = ColorSensor("in2")
-CL2 = ColorSensor("in3")
+CL1 = ColorSensor("in1")
+CL2 = ColorSensor("in2")
 CL1.mode = "COL-COLOR"
 CL2.mode = "COL-COLOR"
 
 # Sensores ultrasonicos
-PROX1 = UltrasonicSensor("in1")  # Direita
+'''PROX1 = UltrasonicSensor("in1")  # Direita
 PROX2 = UltrasonicSensor("in4")  # Esquerda
 PROX1.mode = "US-DIST-CM"
 PROX2.mode = "US-DIST-CM"
+'''
+
+# Sensores infravermelho
+INFRA1= InfraredSensor("in3")
+INFRA2 = InfraredSensor("in4")
+INFRA1.mode = "IR-PROX"
+INFRA2.mode = "IR-PROX"
 
 
 # Variaveis usadas durante o programa
@@ -42,29 +50,37 @@ relacao_cores = {"VERMELHO": "", "VERDE": "", "AMARELO": ""}
 flag_parar = False
 final = False
 
-funcao_motores = Motores(M_DIREITO, M_ESQUERDO, M_PORTA)
+funcao_motores = Motores(M_ESQUERDO, M_DIREITO, M_PORTA)
 
 
 def controle_proporcional(sensor1, sensor2):
+    # Faz correção do percurso de acordo com os valores de distancia dos sensores
+    KP = 1.7
+    try:
+        distancia_direita = sensor1
+        distancia_esquerda = sensor2
+        erro = distancia_direita - distancia_esquerda
+    except ValueError:
+        erro = 0
+    finally:
+        s = KP * erro
+        velocidade_nova_dir = VELOCIDADE_ATUAL - s
+        velocidade_nova_esq = VELOCIDADE_ATUAL + s
 
-    global velocidade_dir, velocidade_esq
+    return velocidade_nova_esq, velocidade_nova_dir
+def controle_proporcional(sensor1, sensor2):
+    KP = 1.9
     # Faz correção do percurso de acordo com os valores de distancia dos sensores
     try:
         distancia_direita = sensor1
         distancia_esquerda = sensor2
         erro = distancia_direita - distancia_esquerda
     except ValueError:
-        distancia_direita = 0
-        distancia_esquerda = 0
         erro = 0
     finally:
-        if distancia_direita == 0:
-            funcao_motores.acelerar(VELOCIDADE_ATUAL*(-1), 1100)
-            funcao_motores.fazer_curva_esq_roda(VELOCIDADE_ATUAL, 700)
-        elif distancia_esquerda == 0:
-            funcao_motores.acelerar(VELOCIDADE_ATUAL*(-1), 1100)
-            funcao_motores.fazer_curva_dir_roda(VELOCIDADE_ATUAL, 700)
-
+        s = KP * erro
+        velocidade_dir -= s
+        velocidade_esq += s
 
 def cor_preto(tempo):
     global velocidade_dir, velocidade_esq
@@ -72,8 +88,10 @@ def cor_preto(tempo):
     funcao_motores.fazer_curva_dir_roda(VELOCIDADE_CURVA, tempo)
     while CL1.value() == PRETO and CL2.value() == PRETO:
         # Depois de fazer a curva, enquanto estiver sobre uma cor apenas va em frente
-        controle_proporcional(CL1.value(), CL2.value())  # Novos valores de velocidade
+        PID.controle_proporcional(CL1.value(), CL2.value())  # Novos valores de velocidade
         funcao_motores.acelerar_ajustando(velocidade_dir, velocidade_esq)
+
+
 
 def retornar_cor(cor):
     # Cor anterior = indice 0
@@ -140,14 +158,59 @@ def sem_direcao(cor, indice_cor):
     else:
         curva(relacao_cores[cor])
 
+def ajustar_na_cor(constante_cor):
+    while True:
+        funcao_motores.acelerar_esq(-1 * VELOCIDADE_ATUAL)
+        funcao_motores.acelerar_dir(-1 * VELOCIDADE_ATUAL)
+
+        if CL1.value() != constante_cor:
+            funcao_motores.acelerar(VELOCIDADE_ATUAL*(-1), 1100)
+            funcao_motores.fazer_curva_esq_roda(VELOCIDADE_ATUAL, 600)
+        if CL2.value() != constante_cor:
+            funcao_motores.acelerar(VELOCIDADE_ATUAL*(-1), 1100)
+            funcao_motores.fazer_curva_dir_roda(VELOCIDADE_ATUAL, 600)
+
+
 def verifica_cor(cor, constante_cor, indice_cor):
-    if CL1.value == constante_cor:
-        funcao_motores.acelerar_dir((-1)*VELOCIDADE_ATUAL, 500)
-    if CL1.value == constante_cor:
-        funcao_motores.acelerar_esq((-1)*VELOCIDADE_ATUAL, 500)
+
+    temp1 = CL1.value()
+    temp2 = CL2.value()
+    if temp1 != temp2:
+        funcao_motores.acelerar_dir(VELOCIDADE_ATUAL * (-1), 500)
+        funcao_motores.acelerar_esq(VELOCIDADE_ATUAL * (-1), 500)
+        ajustar_na_cor(constante_cor)
+    if aprender_caminho():
+        define_direcao(cor_caminho[0])
+
+    sem_direcao(cor, indice_cor)
 
 
 def main():
     global velocidade_dir, velocidade_esq
 
     while True:
+        velocidade_dir, velocidade_esq = controle_proporcional(INFRA1.value(), INFRA2.value())
+        funcao_motores.acelerar_ajustando(velocidade_dir,velocidade_esq)
+        if CL1.value() == VERDE and CL2.value() == VERDE:
+            verifica_cor("VERDE", VERDE, 1)
+            break
+        elif CL1.value() == VERMELHO and CL2.value() == VERMELHO:
+            verifica_cor("VERMELHO", VERMELHO, 0)
+            break
+        elif CL1.value() == AMARELO and CL2.value() == AMARELO:
+            verifica_cor("AMARELO", AMARELO, 2)
+            break
+        elif CL1.value() == PRETO and CL2.value() == PRETO:
+            funcao_motores.acelerar(VELOCIDADE_ATUAL, 100)
+            funcao_motores.acelerar(0, 400)
+
+            if not CL1.value() == PRETO and not CL2.value() == PRETO:
+                funcao_motores.acelerar(-1 * VELOCIDADE_ATUAL, 500)
+                break
+            else:
+                retornar_cor("PRETO")
+                cor_preto(2300)
+
+
+while True:
+    main()
