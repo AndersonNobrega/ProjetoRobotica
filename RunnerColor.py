@@ -27,6 +27,7 @@ COLOR = ColorSensor("in2")
 COLOR.mode = "COL-COLOR"
 
 # Variaveis usadas durante o programa
+# Constantes
 TEMPO_CURVA_90 = 1700
 TEMPO_CURVA_180 = 3400
 ANGULO_CURVA_180 = 180
@@ -39,6 +40,8 @@ KI = 0
 KD = 1
 OFFSET = 0
 AJUSTE_MOTOR = 30
+
+# Variaveis
 angulo_atual = 0
 quant_bonecos = 0
 quant_idas = 0
@@ -56,11 +59,14 @@ sentido = "INDO"
 cor_atual1 = ColorSensor.COLOR_WHITE
 cor_atual2 = ColorSensor.COLOR_WHITE
 
+# Objetos
 funcao_motores = Motores(M_ESQUERDO, M_DIREITO, M_PORTA)
 pid = PID(KP, KI, KD)
 client = mqtt.Client()
-client.connect("169.254.96.68", 1883, 60)
 botao = Button()
+
+# Conectando os dois bricks
+client.connect("169.254.96.68", 1883, 60)
 
 
 def on_connect(client, userdata, flags, rc):
@@ -76,9 +82,9 @@ def on_message(client, userdata, msg):
     global boneco_dir, boneco_esq, cor_atual1, cor_atual2
 
     if msg.topic == "topic/sensor/ultrasonic1":
-        boneco_dir = bool(msg.payload)
-    elif msg.topic == "topic/sensor/ultrasonic2":
         boneco_esq = bool(msg.payload)
+    elif msg.topic == "topic/sensor/ultrasonic2":
+        boneco_dir = bool(msg.payload)
 
     if msg.topic == "topic/sensor/color1":
         cor_atual1 = int(msg.payload)
@@ -90,8 +96,6 @@ def controle_proporcional():
     """
     Faz o calculo do PID e retorna os valores de velocidade para os motores
 
-    :param valor1: Leitura da distancia do sensor infravermelho da direita
-    :param valor2: Leitura da distancia do sensor infravermelho da esquerda
     :return: Novos valores de velocidades para o motor direito e esquerdo
 
     """
@@ -177,6 +181,13 @@ def curva(sentido_curva):
 
 
 def direita_giroscopio(angulo_curva):
+    """
+    Faz a curva para direita se baseando no valor do giroscopio
+
+    :param angulo_curva: Quanto que o robo deve fazer de giro
+
+    """
+
     ang_atual = GYRO.value()
 
     while True:
@@ -187,6 +198,13 @@ def direita_giroscopio(angulo_curva):
 
 
 def esquerda_giroscopio(angulo_curva):
+    """
+    Faz a curva para esquerda se baseando no valor do giroscopio
+
+    :param angulo_curva: Quanto que o robo deve fazer de giro
+
+    """
+
     ang_atual = GYRO.value()
 
     while True:
@@ -267,7 +285,10 @@ def achou_cor(cor, valor_cor, indice_cor=None):
 
         sem_direcao(cor, indice_cor)
 
-    funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 600)
+    while cor_atual1 == valor_cor and cor_atual2 == valor_cor:
+        funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR)
+
+    funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 400)
 
     ajustar_na_cor(ColorSensor.COLOR_WHITE)
     funcao_motores.acelerar(0, 500)
@@ -292,78 +313,79 @@ def sem_direcao(cor, indice_cor):
         curva(relacao_cores[cor])
 
 
-def pega_bonecos_dir():
+def reseta_variaveis():
     """
-    Funcao para pegar os bonecos na plataforma da direita
+    Reseta as variaveis do codigo, para caso seja necessario reiniciar o robo
 
     """
 
-    funcao_motores.acelerar_porta(-1 * VELOCIDADE_ATUAL)
-    funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR), 600)
-    funcao_motores.acelerar(0, 300)
-    direita_giroscopio(ANGULO_CURVA_90 - 5)
+    global quant_bonecos, quant_idas, sentido
 
-    funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 400)
-
-    inicio = time()
-    while cor_atual1 == ColorSensor.COLOR_WHITE and cor_atual2 == ColorSensor.COLOR_WHITE:
-        funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR)
-    fim = time() - inicio
-
-    parar_motor()
-    funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 300)
-    funcao_motores.acelerar_porta(VELOCIDADE_ATUAL)
-    funcao_motores.acelerar(0, 1000)
-    while COLOR.value() == ColorSensor.COLOR_WHITE:
-        funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR))
-    funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 600)
-    esquerda_giroscopio(ANGULO_CURVA_90)
-    funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR), 400)
-    funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 2000)
+    quant_bonecos = 0
+    quant_idas = 0
+    sentido = "INDO"
+    for index in cores_indo:
+        cores_indo[index] = 0
+        cores_voltando[index] = 0
 
 
-def pega_bonecos_esq():
+def pega_bonecos(lado):
     """
-    Funcao para pegar os bonecos na plataforma da esquerda
+    Funcao para pegar os bonecos na plataforma da esquerda ou da direita
+
+    :param lado: Para qual lado o robo deve girar
 
     """
 
     funcao_motores.acelerar_porta(-1 * VELOCIDADE_ATUAL)
     funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR), 600)
     funcao_motores.acelerar(0, 300)
-    esquerda_giroscopio(ANGULO_CURVA_90 - 5)
 
-    funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 600)
+    if lado == "DIREITA":
+        direita_giroscopio(ANGULO_CURVA_90 - 5)
+    else:
+        esquerda_giroscopio(ANGULO_CURVA_90 - 5)
 
-    inicio = time()
+    funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 200)
+
     while cor_atual1 == ColorSensor.COLOR_WHITE and cor_atual2 == ColorSensor.COLOR_WHITE:
         funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR)
-    fim = time() - inicio
 
     parar_motor()
     funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 300)
     funcao_motores.acelerar_porta(VELOCIDADE_ATUAL)
     funcao_motores.acelerar(0, 1000)
+
     while COLOR.value() == ColorSensor.COLOR_WHITE:
         funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR))
-    funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 600)
-    direita_giroscopio(ANGULO_CURVA_90)
+
+    funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 700)
+    if lado == "DIREITA":
+        direita_giroscopio(ANGULO_CURVA_90)
+    else:
+        esquerda_giroscopio(ANGULO_CURVA_90)
+
     funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR), 400)
     funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 2000)
 
 
 def chegou_final():
-    global flag_parar, final, quant_bonecos, quant_idas, sentido
+    """
+    O robo deixa os bonecos no circulo no meio da plataforma e faz o caminho de volta para a pista
+
+    """
+
+    global flag_parar, final, quant_idas, sentido, angulo_atual
 
     funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 1900)
     funcao_motores.acelerar_porta(-1 * VELOCIDADE_ATUAL, 3000)
 
     while cor_atual1 == ColorSensor.COLOR_BLACK and cor_atual2 == ColorSensor.COLOR_BLACK:
-        funcao_motores.acelerar_ajustando(-1 * VELOCIDADE_ATUAL, -1 * VELOCIDADE_ATUAL)
+        funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR))
 
     funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR), 1400)
     parar_motor()
-    if quant_idas == 0:
+    if quant_idas % 2 == 0:
         direita_giroscopio(ANGULO_CURVA_90)
         funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 8000)
         funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR), 500)
@@ -373,8 +395,24 @@ def chegou_final():
         funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR), 500)
 
         direita_giroscopio(ANGULO_CURVA_90)
-        funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 6000)
+        funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR), 1000)
+
+        # Bloco para Testar
+        while PROX1.value() <= 10:
+            funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR)
+
+        inicio = time()
+
+        while PROX1.value() >= 10:
+            funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR)
+
+        fim = time() - inicio
+        # Bloco para Testar
+        funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR),
+                                           (fim / 2) + 100)
         esquerda_giroscopio(ANGULO_CURVA_90)
+        parar_motor()
+        angulo_atual = GYRO.value()
 
         funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 9000)
 
@@ -384,12 +422,16 @@ def chegou_final():
             elif relacao_cores[nomes] == "ESQUERDA":
                 relacao_cores[nomes] = "DIREITA"
         sentido = "VOLTANDO"
-        quant_idas = 1
-    quant_bonecos = 0
+        quant_idas += 1
     final = False
 
 
 def eh_rampa():
+    """
+    Verifica se o robo ja esta na rampa
+
+    """
+
     global quant_bonecos, final, sentido
 
     funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 100)
@@ -437,26 +479,32 @@ def percurso():
     global sentido, quant_idas, quant_bonecos, boneco_esq, boneco_dir
 
     while True:
-        if angulo_atual + ANGULO_DESVIO < GYRO.value():
+        if botao.enter:
+            parar_motor()
+            reseta_variaveis()
+            main()
+
+        if angulo_atual + ANGULO_DESVIO <= GYRO.value():
             funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR), 400)
             esquerda_giroscopio(ANGULO_DESVIO)
             funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 500)
-        elif angulo_atual - ANGULO_DESVIO > GYRO.value():
+        elif angulo_atual - ANGULO_DESVIO >= GYRO.value():
             funcao_motores.acelerar_individual(-1 * VELOCIDADE_ATUAL, -1 * (VELOCIDADE_ATUAL + AJUSTE_MOTOR), 400)
             direita_giroscopio(ANGULO_DESVIO)
             funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 500)
 
-        if quant_bonecos < 2:
-            if boneco_dir:
+        if quant_bonecos < 2 and sentido == "INDO":
+            if boneco_esq:
                 quant_bonecos += 1
-                pega_bonecos_esq()
-                boneco_dir = False
-            elif boneco_esq:
-                quant_bonecos += 1
-                pega_bonecos_dir()
+                pega_bonecos("ESQUERDA")
                 boneco_esq = False
+            elif boneco_dir:
+                quant_bonecos += 1
+                pega_bonecos("DIREITA")
+                boneco_dir = False
 
         if sum(cores_indo) == sum(cores_voltando) and sum(cores_indo) != 0 and sum(cores_voltando) != 0:
+            funcao_motores.acelerar_individual(VELOCIDADE_ATUAL, VELOCIDADE_ATUAL + AJUSTE_MOTOR, 1000)
             direita_giroscopio(ANGULO_CURVA_180)
             for nomes in relacao_cores.keys():
                 if relacao_cores[nomes] == "DIREITA":
@@ -466,8 +514,9 @@ def percurso():
             for index in cores_indo:
                 cores_indo[index] = 0
                 cores_voltando[index] = 0
-            quant_idas = 0
+            quant_idas += 1
             sentido = "INDO"
+            quant_bonecos = 0
 
         velocidade_esq, velocidade_dir = controle_proporcional()
         funcao_motores.acelerar_ajustando(velocidade_dir, velocidade_esq)
@@ -508,10 +557,10 @@ def percurso():
 def main():
     global OFFSET, angulo_atual
 
-    system("clear")
     print("\n\n\n\n\n\n\n\n\n\n   ----- Botao do meio para iniciar -----")
     while True:
         if botao.enter:
+            system("clear")
             OFFSET = PROX1.value() - PROX2.value()
             angulo_atual = GYRO.value()
             break

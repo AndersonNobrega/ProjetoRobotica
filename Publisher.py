@@ -31,10 +31,10 @@ def on_disconnect(client, userdata, rc=0):
 
 client.on_disconnect = on_disconnect
 
-system("clear")
 print("\n\n\n\n\n\n\n\n\n\n   ----- Botao do meio para iniciar -----")
 while True:
     if botao.enter:
+        system("clear")
         break
 
 while True:
