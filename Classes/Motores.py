@@ -15,6 +15,17 @@ class Motores:
             self.m_direito.wait_while('running')
             self.m_esquerdo.wait_while('running')
 
+    def acelerar_individual(self, velocidade_dir, velocidade_esq, tempo=0):
+        # Se n receber tempo, roda infinitamente
+        if tempo == 0:
+            self.m_direito.run_forever(speed_sp=velocidade_dir, stop_action='brake')
+            self.m_esquerdo.run_forever(speed_sp=velocidade_esq, stop_action='brake')
+        else:
+            self.m_direito.run_timed(time_sp=tempo, speed_sp=velocidade_dir, stop_action='brake')
+            self.m_esquerdo.run_timed(time_sp=tempo, speed_sp=velocidade_esq, stop_action='brake')
+            self.m_direito.wait_while('running')
+            self.m_esquerdo.wait_while('running')
+
     def acelerar_esq(self, velocidade, tempo=0):
 
         if tempo == 0:

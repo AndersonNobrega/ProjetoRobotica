@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from ev3dev.ev3 import UltrasonicSensor, InfraredSensor
-from Classes.PID import *
+from ev3dev.ev3 import UltrasonicSensor, ColorSensor, Button
+from os import system
 import paho.mqtt.client as mqtt
 
 # Sensores ultrasonicos
@@ -10,17 +10,17 @@ ULTRA2 = UltrasonicSensor("in2")
 ULTRA1.mode = "US-DIST-CM"
 ULTRA2.mode = "US-DIST-CM"
 
-# Sensores infravermelhos
-PROX1 = InfraredSensor("in4")
-PROX2 = InfraredSensor("in3")
-PROX1.mode = "IR-PROX"
-PROX2.mode = "IR-PROX"
+# Sensores de Cor
+CL1 = ColorSensor("in3")
+CL2 = ColorSensor("in4")
+CL1.mode = "COL-COLOR"
+CL2.mode = "COL-COLOR"
 
-KP = 3
-KI = 0
-KD = 0
-pid = PID(KP, KI, KD)
+DISTANCIA_BONECOS = 20
+cor_anterior1 = ""
+cor_anterior2 = ""
 client = mqtt.Client()
+botao = Button()
 client.connect("localhost", 1883, 60)
 client.loop_start()
 
@@ -30,16 +30,27 @@ def on_disconnect(client, userdata, rc=0):
 
 
 client.on_disconnect = on_disconnect
-offset = PROX1.value() - PROX2.value()
+
+system("clear")
+print("\n\n\n\n\n\n\n\n\n\n   ----- Botao do meio para iniciar -----")
+while True:
+    if botao.enter:
+        break
 
 while True:
     distancia1 = ULTRA1.value() / 10
-    # distancia2 = ULTRA2.value() / 10
-    # erro = (PROX1.value() - PROX2.value()) - offset
-    # pid.update(erro)
-    # correcao = pid.output
+    distancia2 = ULTRA2.value() / 10
+    cor_atual1 = CL1.value()
+    cor_atual2 = CL2.value()
 
-    # client.publish(topic="topic/sensor/pid", payload=correcao, qos=0)
-    client.publish(topic="topic/sensor/ultrasonic1", payload=distancia1, qos=0, retain=False)
-    # elif distancia2 <= DISTANCIA_BONECOS:
-    # client.publish("topic/sensor/ultrasonic2", True)
+    if cor_atual1 != cor_anterior1:
+        client.publish(topic="topic/sensor/color1", payload=cor_atual1, qos=0, retain=False)
+        cor_anterior1 = cor_atual1
+    if cor_atual2 != cor_anterior2:
+        client.publish(topic="topic/sensor/color2", payload=cor_atual2, qos=0, retain=False)
+        cor_anterior2 = cor_atual2
+
+    if distancia1 <= DISTANCIA_BONECOS:
+        client.publish(topic="topic/sensor/ultrasonic1", payload=True, qos=0, retain=False)
+    elif distancia2 <= DISTANCIA_BONECOS:
+        client.publish(topic="topic/sensor/ultrasonic2", payload=True, qos=0, retain=False)
